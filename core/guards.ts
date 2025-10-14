@@ -1,34 +1,35 @@
 // ************************************************************************** //
 //                                                                            //
 //                                                        :::      ::::::::   //
-//   guards.js                                          :+:      :+:    :+:   //
+//   guards.ts                                          :+:      :+:    :+:   //
 //                                                    +:+ +:+         +:+     //
 //   By: jeportie <jeportie@42.fr>                  +#+  +:+       +#+        //
 //                                                +#+#+#+#+#+   +#+           //
 //   Created: 2025/09/15 13:44:06 by jeportie          #+#    #+#             //
-//   Updated: 2025/09/15 13:48:30 by jeportie         ###   ########.fr       //
+//   Updated: 2025/10/14 16:34:54 by jeportie         ###   ########.fr       //
 //                                                                            //
 // ************************************************************************** //
 
-/**
- * Build a guard that enforces authentication before entering a route.
- *
- * @param {AuthService} auth - your AuthService instance.
- * @param {Object} opts
- * @param {string} [opts.loginPath="/login"] - where to redirect when unauthenticated.
- * @param {Function} [opts.checkSessionFn] - async fn returning true if session is valid.
- * @param {{ info:Function, warn:Function, error:Function }} [opts.logger=console]
- *
- * @returns {Function} - a guard usable in route.beforeEnter.
- */
-export function requireAuth(auth, { loginPath = "/login", checkSessionFn, logger = console } = {}) {
-    return async function(ctx) {
-        logger.info?.("[Guard] Checking auth for path:", ctx?.path, "...");
+import { AuthService } from "./AuthService.js";
 
-        const wanted =
-            (ctx?.path || location.pathname) +
-            (location.search || "") +
-            (location.hash || "");
+export interface GuardContext {
+    path?: string;
+}
+
+export interface RequireAuthOptions {
+    loginPath?: string;
+    checkSessionFn?: () => Promise<boolean>;
+    logger?: Console;
+}
+
+export function requireAuth(
+    auth: AuthService,
+    { loginPath = "/login", checkSessionFn, logger = console }: RequireAuthOptions = {}
+) {
+    return async function(ctx: GuardContext): Promise<true | string> {
+        logger.info?.("[Guard] Checking auth for:", ctx?.path);
+
+        const wanted = `${ctx?.path || location.pathname}${location.search || ""}${location.hash || ""}`;
         const next = encodeURIComponent(wanted);
 
         if (!auth.isLoggedIn()) {
@@ -36,25 +37,22 @@ export function requireAuth(auth, { loginPath = "/login", checkSessionFn, logger
             return `${loginPath}?next=${next}`;
         }
 
-        // Proactive refresh if token looks expired
         if (auth.isTokenExpired()) {
-            logger.info?.("[Guard] Token looks expired, trying refresh...");
+            logger.info?.("[Guard] Token expired, refreshing...");
             const ok = await auth.initFromStorage();
             if (!ok) {
-                logger.warn?.("[Guard] Refresh failed, redirecting to login");
+                logger.warn?.("[Guard] Refresh failed");
                 return `${loginPath}?next=${next}`;
             }
         }
 
-        // Definitive backend check (optional)
         if (typeof checkSessionFn === "function") {
             try {
-                const valid = await checkSessionFn();
-                if (valid) {
-                    logger.info?.("[Guard] Backend session check OK");
+                if (await checkSessionFn()) {
+                    logger.info?.("[Guard] Session check OK");
                     return true;
                 }
-                logger.warn?.("[Guard] Backend session check failed");
+                logger.warn?.("[Guard] Session check failed");
             } catch (err) {
                 logger.error?.("[Guard] checkSessionFn exception:", err);
             }
@@ -62,17 +60,11 @@ export function requireAuth(auth, { loginPath = "/login", checkSessionFn, logger
             return `${loginPath}?next=${next}`;
         }
 
-        // If no backend check, just trust local token
         return true;
     };
 }
 
-/**
- * Global guard: block navigation to URLs starting with /api/.
- *
- * @param {string} to - destination URL.
- * @returns {boolean} false if navigation should be blocked.
- */
-export function onBeforeNavigate(to) {
-    if (to.startsWith("/api/")) return false;
+/** Block navigation to /api/ routes */
+export function onBeforeNavigate(to: string): boolean {
+    return !to.startsWith("/api/");
 }
