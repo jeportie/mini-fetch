@@ -1,0 +1,88 @@
+// ************************************************************************** //
+//                                                                            //
+//                                                        :::      ::::::::   //
+//   AuthService.ts                                     :+:      :+:    :+:   //
+//                                                    +:+ +:+         +:+     //
+//   By: jeportie <jeportie@42.fr>                  +#+  +:+       +#+        //
+//                                                +#+#+#+#+#+   +#+           //
+//   Created: 2025/09/15 12:18:11 by jeportie          #+#    #+#             //
+//   Updated: 2025/10/14 16:31:37 by jeportie         ###   ########.fr       //
+//                                                                            //
+// ************************************************************************** //
+
+import { AuthOptions } from "../types/auth.js";
+
+/**
+ * Generic authentication service.
+ * - Stores and retrieves JWT tokens.
+ * - Persists a "has session" flag in localStorage.
+ * - Can auto-refresh using a caller-provided refreshFn.
+ * - Logs through a configurable logger (default = console).
+ */
+export class AuthService {
+    private token: string | null = null;
+    private storageKey: string;
+    private refreshFn?: () => Promise<string | null>;
+    private logger: Console;
+
+    constructor({ storageKey = "session", refreshFn, logger = console }: AuthOptions = {}) {
+        this.storageKey = storageKey;
+        this.refreshFn = refreshFn;
+        this.logger = logger;
+    }
+
+    async initFromStorage(): Promise<boolean> {
+        if (!localStorage.getItem(this.storageKey)) return false;
+
+        try {
+            const newToken = await this.refreshFn?.();
+            if (newToken) {
+                this.setToken(newToken);
+                this.logger.info?.("[Auth] Session restored");
+                return true;
+            }
+            this.logger.warn?.("[Auth] RefreshFn returned no token");
+        } catch (err) {
+            this.logger.error?.("[Auth] Refresh exception:", err);
+        }
+
+        this.clear();
+        return false;
+    }
+
+    isLoggedIn(): boolean {
+        return !!this.token;
+    }
+
+    getToken(): string | null {
+        return this.token;
+    }
+
+    setToken(token: string | null): void {
+        this.token = token;
+        if (token) localStorage.setItem(this.storageKey, "true");
+        else localStorage.removeItem(this.storageKey);
+    }
+
+    clear(): void {
+        this.token = null;
+        localStorage.removeItem(this.storageKey);
+        this.logger.info?.("[Auth] Session cleared");
+    }
+
+    isTokenExpired(skewSec = 10): boolean {
+        const t = this.token;
+        if (!t) return true;
+
+        const parts = t.split(".");
+        if (parts.length !== 3) return true;
+
+        try {
+            const payload = JSON.parse(atob(parts[1]));
+            const now = Math.floor(Date.now() / 1000);
+            return (payload.exp ?? 0) <= (now + skewSec);
+        } catch {
+            return true;
+        }
+    }
+}

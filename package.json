@@ -10,7 +10,8 @@
     ],
     "scripts": {
         "build": "tsc --project tsconfig.json",
-        "clean": "rm -rf dist"
+        "clean": "rm -rf dist",
+        "watch": "tsc --watch --project tsconfig.json"
     },
     "keywords": [
         "fetch",
@@ -26,5 +27,8 @@
             "import": "./dist/index.js",
             "types": "./dist/index.d.ts"
         }
+    },
+    "devDependencies": {
+        "typescript": "^5.9.3"
     }
 }
