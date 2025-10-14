@@ -1,0 +1,6 @@
+[submodule "miniLib/mini-fetch"]
+	path = miniLib/mini-fetch
+	url = https://github.com/jeportie/mini-fetch.git
+[submodule "miniLib/mini-router"]
+	path = miniLib/mini-router
+	url = https://github.com/jeportie/mini-router.git
