@@ -1,0 +1,30 @@
+{
+    "name": "@jeportie/mini-fetch",
+    "version": "0.2.0",
+    "description": "Lightweight, framework-agnostic HTTP and Auth layer for SPAs",
+    "type": "module",
+    "main": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "files": [
+        "dist"
+    ],
+    "scripts": {
+        "build": "tsc --project tsconfig.json",
+        "clean": "rm -rf dist"
+    },
+    "keywords": [
+        "fetch",
+        "auth",
+        "spa",
+        "typescript",
+        "jwt"
+    ],
+    "author": "Jérôme Portier <jeportie@42.fr>",
+    "license": "MIT",
+    "exports": {
+        ".": {
+            "import": "./dist/index.js",
+            "types": "./dist/index.d.ts"
+        }
+    }
+}
