@@ -150,13 +150,29 @@ export default class Fetch {
 
     /** Normalizes Fastify/AJV validation messages */
     private normalizeErrorMessage(msg: string) {
-        return msg.startsWith("body/")
-            ? msg
-                .replace(/^body\//, "")
-                .replace(/\buser\b/, "User/Email")
-                .replace(/\bpwd\b/, "Password")
-            : msg;
+        if (!msg.startsWith("body/")) return msg;
+
+        // Remove the "body/" prefix
+        msg = msg.replace(/^body\//, "");
+
+        // Extract the field name (first word before a space or another word)
+        const match = msg.match(/^([a-zA-Z0-9_]+)/);
+        if (match) {
+            const field = match[1];
+            const capitalized = field.charAt(0).toUpperCase() + field.slice(1);
+
+            // Replace only the first occurrence of that field
+            msg = msg.replace(field, capitalized);
+        }
+
+        // Optional specific human mappings
+        msg = msg
+            .replace(/\bUser\b/, "User/Email") // keep your special case
+            .replace(/\bPwd\b/, "Password");
+
+        return msg;
     }
+
 
     /** Tries to refresh the token once and handle logout */
     private async tryRefresh(): Promise<boolean> {
