@@ -20,7 +20,7 @@ async function handleRequest(action, logger) {
     }
     catch (err) {
         const msg = `[API] ❌ ${err.code || err.status || "Error"}: ${err.message || "Unknown error"}`;
-        logger.error?.(msg, err);
+        logger.error?.(msg);
         return { data: null, error: err };
     }
 }

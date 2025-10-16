@@ -173,7 +173,7 @@ export default class Fetch {
             );
             return false;
         } catch (err) {
-            this.logger.error?.("[Fetch] Refresh exception:", err);
+            // this.logger.error?.("[Fetch] Refresh exception:", err);
             this.onToken?.(null);
             window.dispatchEvent(
                 new CustomEvent("auth:logout", { detail: { reason: "refresh_exception" } })
