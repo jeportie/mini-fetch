@@ -6,7 +6,7 @@
 //   By: jeportie <jeportie@42.fr>                  +#+  +:+       +#+        //
 //                                                +#+#+#+#+#+   +#+           //
 //   Created: 2025/10/14 14:35:31 by jeportie          #+#    #+#             //
-//   Updated: 2025/10/14 16:38:21 by jeportie         ###   ########.fr       //
+//   Updated: 2025/10/16 10:08:08 by jeportie         ###   ########.fr       //
 //                                                                            //
 // ************************************************************************** //
 
@@ -26,7 +26,7 @@ async function handleRequest<T>(
         return { data, error: null };
     } catch (err: any) {
         const msg = `[API] ❌ ${err.code || err.status || "Error"}: ${err.message || "Unknown error"}`;
-        logger.error?.(msg, err);
+        logger.error?.(msg);
         return { data: null, error: err };
     }
 }
