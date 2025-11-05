@@ -61,7 +61,7 @@ export default class Fetch {
         opts: RequestInit = {}
     ): Promise<T> {
         const init = this.buildRequest(method, body, opts);
-        const url = this.baseURL + endpoint;
+        const url = this.resolveUrl(endpoint);
 
         this.logger.info?.(`[Fetch] → ${method} ${url}`);
 
@@ -146,6 +146,12 @@ export default class Fetch {
         } catch {
             return null;
         }
+    }
+
+    private resolveUrl(endpoint: string): string {
+        if (/^https?:\/\//i.test(endpoint))
+            return endpoint; // absolute URL, no base
+        return this.baseURL + endpoint;
     }
 
     /** Normalizes Fastify/AJV validation messages */
