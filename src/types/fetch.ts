@@ -15,6 +15,7 @@ export interface FetchOptions {
     onToken?: (token: string | null) => void;
     refreshFn?: () => Promise<boolean>;
     logger?: Console;
+    credentials?: RequestCredentials;
 }
 
 export interface FetchRequestInit extends RequestInit {

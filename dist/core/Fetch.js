@@ -22,12 +22,14 @@ export default class Fetch {
     onToken;
     refreshFn;
     logger;
+    credentials;
     constructor(baseURL, options = {}) {
         this.baseURL = baseURL;
         this.getToken = options.getToken;
         this.onToken = options.onToken;
         this.refreshFn = options.refreshFn;
         this.logger = options.logger ?? console;
+        this.credentials = options.credentials ?? "include";
     }
     async get(endpoint, opts) {
         return this.send("GET", endpoint, undefined, opts);
@@ -67,10 +69,12 @@ export default class Fetch {
         const token = this.getToken?.();
         if (token)
             headers["Authorization"] = `Bearer ${token}`;
+        // allow per-call override; otherwise use instance default
+        const credentials = opts.credentials ?? this.credentials ?? "same-origin";
         const init = {
             method,
             headers,
-            credentials: "include",
+            credentials,
             body: body && method !== "GET" ? JSON.stringify(body) : undefined,
         };
         return init;
