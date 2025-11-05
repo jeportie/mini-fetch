@@ -35,9 +35,10 @@ async function handleRequest<T>(
 export async function safeGet<T = any>(
     API: Fetch,
     url: string,
+    opts?: RequestInit,
     logger: Console = console
 ): Promise<SafeResult<T>> {
-    return handleRequest(() => API.get<T>(url), logger);
+    return handleRequest(() => API.get<T>(url, opts), logger);
 }
 
 /** Safe wrapper for POST requests */
@@ -45,9 +46,10 @@ export async function safePost<T = any>(
     API: Fetch,
     url: string,
     body?: object,
+    opts?: RequestInit,
     logger: Console = console
 ): Promise<SafeResult<T>> {
-    return handleRequest(() => API.post<T>(url, body), logger);
+    return handleRequest(() => API.post<T>(url, body, opts), logger);
 }
 
 /** Safe wrapper for PUT requests */
@@ -55,9 +57,10 @@ export async function safePut<T = any>(
     API: Fetch,
     url: string,
     body?: object,
+    opts?: RequestInit,
     logger: Console = console
 ): Promise<SafeResult<T>> {
-    return handleRequest(() => API.put<T>(url, body), logger);
+    return handleRequest(() => API.put<T>(url, body, opts), logger);
 }
 
 /** Safe wrapper for DELETE requests */
@@ -65,8 +68,9 @@ export async function safeDelete<T = any>(
     API: Fetch,
     url: string,
     body?: object,
+    opts?: RequestInit,
     logger: Console = console
 ): Promise<SafeResult<T>> {
-    return handleRequest(() => API.delete<T>(url, body), logger);
+    return handleRequest(() => API.delete<T>(url, body, opts), logger);
 }
 

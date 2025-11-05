@@ -25,18 +25,18 @@ async function handleRequest(action, logger) {
     }
 }
 /** Safe wrapper for GET requests */
-export async function safeGet(API, url, logger = console) {
-    return handleRequest(() => API.get(url), logger);
+export async function safeGet(API, url, opts, logger = console) {
+    return handleRequest(() => API.get(url, opts), logger);
 }
 /** Safe wrapper for POST requests */
-export async function safePost(API, url, body, logger = console) {
-    return handleRequest(() => API.post(url, body), logger);
+export async function safePost(API, url, body, opts, logger = console) {
+    return handleRequest(() => API.post(url, body, opts), logger);
 }
 /** Safe wrapper for PUT requests */
-export async function safePut(API, url, body, logger = console) {
-    return handleRequest(() => API.put(url, body), logger);
+export async function safePut(API, url, body, opts, logger = console) {
+    return handleRequest(() => API.put(url, body, opts), logger);
 }
 /** Safe wrapper for DELETE requests */
-export async function safeDelete(API, url, body, logger = console) {
-    return handleRequest(() => API.delete(url, body), logger);
+export async function safeDelete(API, url, body, opts, logger = console) {
+    return handleRequest(() => API.delete(url, body, opts), logger);
 }
