@@ -24,6 +24,7 @@ export default class Fetch {
     private handleError;
     /** Parses text safely */
     private safeJson;
+    private resolveUrl;
     /** Normalizes Fastify/AJV validation messages */
     private normalizeErrorMessage;
     /** Tries to refresh the token once and handle logout */

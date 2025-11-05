@@ -46,7 +46,7 @@ export default class Fetch {
     // ------------------------------------------------------------------------
     async send(method, endpoint, body, opts = {}) {
         const init = this.buildRequest(method, body, opts);
-        const url = this.baseURL + endpoint;
+        const url = this.resolveUrl(endpoint);
         this.logger.info?.(`[Fetch] → ${method} ${url}`);
         const res = await fetch(url, init);
         const text = await res.text();
@@ -81,7 +81,8 @@ export default class Fetch {
         if (res.status === 401 && !endpoint.startsWith("/auth/")) {
             this.logger.warn?.("[Fetch] 401 received, attempting refresh...");
             if (await this.tryRefresh()) {
-                const retry = await fetch(this.baseURL + endpoint, init);
+                const retryUrl = this.resolveUrl(endpoint);
+                const retry = await fetch(retryUrl, init);
                 const retryText = await retry.text();
                 const retryData = retryText ? this.safeJson(retryText) : null;
                 if (retry.ok)
@@ -111,6 +112,11 @@ export default class Fetch {
         catch {
             return null;
         }
+    }
+    resolveUrl(endpoint) {
+        if (/^https?:\/\//i.test(endpoint))
+            return endpoint; // absolute URL, no base
+        return this.baseURL + endpoint;
     }
     /** Normalizes Fastify/AJV validation messages */
     normalizeErrorMessage(msg) {
