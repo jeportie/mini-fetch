@@ -13,12 +13,16 @@ export default class Fetch {
     private refreshFn?;
     private logger;
     private credentials;
+    private beforeRequestHooks;
+    private afterResponseHooks;
     constructor(baseURL: string, options?: FetchOptions);
     get<T = any>(endpoint: string, opts?: RequestInit): Promise<T>;
     post<T = any>(endpoint: string, body?: object, opts?: RequestInit): Promise<T>;
     put<T = any>(endpoint: string, body?: object, opts?: RequestInit): Promise<T>;
     delete<T = any>(endpoint: string, body?: object, opts?: RequestInit): Promise<T>;
     private send;
+    registerBeforeRequest(fn: (init: RequestInit) => Promise<void> | void): Promise<void>;
+    registerAfterResponse(fn: (res: Response) => Promise<void> | void): Promise<void>;
     /** Builds headers, body, and attaches token */
     private buildRequest;
     /** Handles HTTP errors and optional refresh retry */

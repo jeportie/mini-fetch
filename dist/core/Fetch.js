@@ -23,6 +23,8 @@ export default class Fetch {
     refreshFn;
     logger;
     credentials;
+    beforeRequestHooks = [];
+    afterResponseHooks = [];
     constructor(baseURL, options = {}) {
         this.baseURL = baseURL;
         this.getToken = options.getToken;
@@ -50,13 +52,26 @@ export default class Fetch {
         const init = this.buildRequest(method, body, opts);
         const url = this.resolveUrl(endpoint);
         this.logger.info?.(`[Fetch] → ${method} ${url}`);
+        for (const hook of this.beforeRequestHooks)
+            await hook(init);
         const res = await fetch(url, init);
+        for (const hook of this.afterResponseHooks)
+            await hook(res);
         const text = await res.text();
         const data = text ? this.safeJson(text) : null;
         this.logger.info?.(`[Fetch] ← ${res.status} ${endpoint}`);
         if (res.ok)
             return data;
         return this.handleError(res, endpoint, init, data);
+    }
+    // ------------------------------------------------------------------------
+    // Hooks
+    // ------------------------------------------------------------------------
+    async registerBeforeRequest(fn) {
+        this.beforeRequestHooks.push(fn);
+    }
+    async registerAfterResponse(fn) {
+        this.afterResponseHooks.push(fn);
     }
     // ------------------------------------------------------------------------
     // Helpers
