@@ -160,18 +160,21 @@ export default class Fetch {
     /** Tries to refresh the token once and handle logout */
     async tryRefresh() {
         try {
-            const ok = await this.refreshFn?.();
-            if (ok) {
-                this.logger.info?.("[Fetch] Token refreshed");
-                return true;
+            const result = await this.refreshFn?.();
+            const token = typeof result === "string" ? result : null;
+            const ok = !!result;
+            if (token) {
+                this.onToken?.(token); // ✅ apply immediately
+                this.logger.info?.("[Fetch] Token refreshed (new token applied)");
             }
-            this.logger.warn?.("[Fetch] RefreshFn returned false");
+            if (ok)
+                return true;
+            this.logger.warn?.("[Fetch] RefreshFn returned false/null");
             this.onToken?.(null);
             window.dispatchEvent(new CustomEvent("auth:logout", { detail: { reason: "refresh_failed" } }));
             return false;
         }
         catch (err) {
-            // this.logger.error?.("[Fetch] Refresh exception:", err);
             this.onToken?.(null);
             window.dispatchEvent(new CustomEvent("auth:logout", { detail: { reason: "refresh_exception" } }));
             return false;
