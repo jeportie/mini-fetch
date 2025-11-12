@@ -102,10 +102,12 @@ export default class Fetch {
     /** Builds headers, body, and attaches token */
     private buildRequest(method: string, body?: object, opts: RequestInit = {}): FetchRequestInit {
         const headers: Record<string, string> = { ...(opts.headers as any) };
-        if (body && method !== "GET") headers["Content-Type"] = "application/json";
+        if (body && method !== "GET")
+            headers["Content-Type"] = "application/json";
 
         const token = this.getToken?.();
-        if (token) headers["Authorization"] = `Bearer ${token}`;
+        if (token)
+            headers["Authorization"] = `Bearer ${token}`;
 
         // allow per-call override; otherwise use instance default
         const credentials = opts.credentials ?? this.credentials ?? "same-origin";
@@ -130,8 +132,10 @@ export default class Fetch {
         if (res.status === 401 && !endpoint.startsWith("/auth/")) {
             this.logger.warn?.("[Fetch] 401 received, attempting refresh...");
             if (await this.tryRefresh()) {
+                // 🔁 rebuild init so Authorization uses new token
+                const retryInit = this.buildRequest(init.method || "GET", undefined, init);
                 const retryUrl = this.resolveUrl(endpoint);
-                const retry = await fetch(retryUrl, init);
+                const retry = await fetch(retryUrl, retryInit);
                 const retryText = await retry.text();
                 const retryData = retryText ? this.safeJson(retryText) : null;
 

@@ -100,8 +100,10 @@ export default class Fetch {
         if (res.status === 401 && !endpoint.startsWith("/auth/")) {
             this.logger.warn?.("[Fetch] 401 received, attempting refresh...");
             if (await this.tryRefresh()) {
+                // 🔁 rebuild init so Authorization uses new token
+                const retryInit = this.buildRequest(init.method || "GET", undefined, init);
                 const retryUrl = this.resolveUrl(endpoint);
-                const retry = await fetch(retryUrl, init);
+                const retry = await fetch(retryUrl, retryInit);
                 const retryText = await retry.text();
                 const retryData = retryText ? this.safeJson(retryText) : null;
                 if (retry.ok)
