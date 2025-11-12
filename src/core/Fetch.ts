@@ -6,7 +6,7 @@
 //   By: jeportie <jeportie@42.fr>                  +#+  +:+       +#+        //
 //                                                +#+#+#+#+#+   +#+           //
 //   Created: 2025/09/15 14:12:21 by jeportie          #+#    #+#             //
-//   Updated: 2025/10/14 16:51:27 by jeportie         ###   ########.fr       //
+//   Updated: 2025/11/12 16:41:31 by jeportie         ###   ########.fr       //
 //                                                                            //
 // ************************************************************************** //
 
@@ -19,12 +19,17 @@ import { FetchOptions, FetchRequestInit } from "../types/fetch.js";
  * - On 401, calls refreshFn and retries once.
  * - Logs via configurable logger.
  */
+
+function hasWithPrefix(logger: any): logger is { withPrefix: (prefix: string) => any } {
+    return typeof logger?.withPrefix === "function";
+}
+
 export default class Fetch {
     private baseURL: string;
     private getToken?: () => string | null;
     private onToken?: (t: string | null) => void;
     private refreshFn?: () => Promise<boolean>;
-    private logger: Console;
+    private logger: any;
     private credentials: RequestCredentials;
     private beforeRequestHooks: Array<(init: RequestInit) => Promise<void> | void> = [];
     private afterResponseHooks: Array<(res: Response) => Promise<void> | void> = [];
@@ -36,9 +41,22 @@ export default class Fetch {
         this.getToken = options.getToken;
         this.onToken = options.onToken;
         this.refreshFn = options.refreshFn;
-        this.logger = options.logger ?? console;
+        const baseLogger = options.logger ?? console;
+
+        if (hasWithPrefix(baseLogger)) {
+            this.logger = baseLogger.withPrefix("[Fetch]");
+        } else {
+            this.logger = baseLogger;
+        }
+
         this.credentials = options.credentials ?? "include";
+
+        this.logger.debug?.("Initialized Fetch client with baseURL:", baseURL);
     }
+
+    // ------------------------------------------------------------------------
+    // HTTP Methods
+    // ------------------------------------------------------------------------
 
     async get<T = any>(endpoint: string, opts?: RequestInit): Promise<T> {
         return this.send<T>("GET", endpoint, undefined, opts);
@@ -69,19 +87,26 @@ export default class Fetch {
         const init = this.buildRequest(method, body, opts);
         const url = this.resolveUrl(endpoint);
 
-        this.logger.info?.(`[Fetch] → ${method} ${url}`);
+        this.logger.info?.(`${method} ${url}`);
 
+        for (const hook of this.beforeRequestHooks) {
+            await hook(init);
+        }
 
-        for (const hook of this.beforeRequestHooks) await hook(init);
         const res = await fetch(url, init);
-        for (const hook of this.afterResponseHooks) await hook(res);
+
+        for (const hook of this.afterResponseHooks) {
+            await hook(res);
+        }
 
         const text = await res.text();
         const data = text ? this.safeJson(text) : null;
 
-        this.logger.info?.(`[Fetch] ← ${res.status} ${endpoint}`);
+        this.logger.debug?.(`← ${res.status} ${endpoint}`);
 
-        if (res.ok) return data;
+        if (res.ok) {
+            return data;
+        }
 
         return this.handleError<T>(res, endpoint, init, data);
     }
@@ -89,12 +114,15 @@ export default class Fetch {
     // ------------------------------------------------------------------------
     // Hooks
     // ------------------------------------------------------------------------
+
     async registerBeforeRequest(fn: (init: RequestInit) => Promise<void> | void) {
         this.beforeRequestHooks.push(fn);
+        this.logger.debug?.("Registered beforeRequest hook.");
     }
 
     async registerAfterResponse(fn: (res: Response) => Promise<void> | void) {
         this.afterResponseHooks.push(fn);
+        this.logger.debug?.("Registered afterResponse hook.");
     }
 
     // ------------------------------------------------------------------------
@@ -104,14 +132,17 @@ export default class Fetch {
     /** Builds headers, body, and attaches token */
     private buildRequest(method: string, body?: object, opts: RequestInit = {}): FetchRequestInit {
         const headers: Record<string, string> = { ...(opts.headers as any) };
-        if (body && method !== "GET")
+
+        if (body && method !== "GET") {
             headers["Content-Type"] = "application/json";
+        }
 
         const token = this.getToken?.();
-        if (token)
-            headers["Authorization"] = `Bearer ${token}`;
 
-        // allow per-call override; otherwise use instance default
+        if (token) {
+            headers["Authorization"] = `Bearer ${token}`;
+        }
+
         const credentials = opts.credentials ?? this.credentials ?? "same-origin";
 
         const init: RequestInit = {
@@ -120,6 +151,8 @@ export default class Fetch {
             credentials,
             body: body && method !== "GET" ? JSON.stringify(body) : undefined,
         };
+
+        this.logger.debug?.("Built request:", { method, headers, credentials });
         return init;
     }
 
@@ -130,44 +163,58 @@ export default class Fetch {
         init: RequestInit,
         data: any
     ): Promise<T> {
-        // Handle 401 with refresh
-        if (res.status === 401 && !endpoint.startsWith("/auth/refresh") && !endpoint.includes("/sessions/revoke")) {
-            // if (res.status === 401 && !endpoint.startsWith("/auth/refresh")) {
-            this.logger.warn?.("[Fetch] 401 received, attempting refresh...");
-            if (await this.tryRefresh()) {
-                // 🔁 rebuild init so Authorization uses new token
+        if (
+            res.status === 401 &&
+            !endpoint.startsWith("/auth/refresh") &&
+            !endpoint.includes("/sessions/revoke")
+        ) {
+            this.logger.warn?.("401 received — attempting token refresh...");
+
+            const refreshed = await this.tryRefresh();
+
+            if (refreshed) {
                 const originalBody =
                     typeof init.body === "string" ? JSON.parse(init.body) : undefined;
+
                 const retryInit = this.buildRequest(init.method || "GET", originalBody, init);
                 const retryUrl = this.resolveUrl(endpoint);
+
                 const retry = await fetch(retryUrl, retryInit);
                 const retryText = await retry.text();
                 const retryData = retryText ? this.safeJson(retryText) : null;
 
-                if (retry.ok) return retryData as T;
+                this.logger.info?.(`Retry after refresh → ${retry.status} ${endpoint}`);
+
+                if (retry.ok) {
+                    return retryData as T;
+                }
 
                 const retryErr: any = new Error(
                     this.normalizeErrorMessage(
                         retryData?.message || retryData?.error || retry.statusText || "Request failed"
                     )
                 );
+
                 retryErr.status = retry.status;
                 retryErr.data = retryData;
                 retryErr.code = retryData?.code || "HTTP_ERROR";
                 retryErr.error = retryData?.error;
+
                 throw retryErr;
             }
         }
 
-        // Normal error path
         const message = this.normalizeErrorMessage(
             data?.message || data?.error || res.statusText || "Request failed"
         );
+
         const err: any = new Error(message);
         err.status = res.status;
         err.data = data;
         err.code = data?.code || "HTTP_ERROR";
         err.error = message;
+
+        this.logger.error?.(`❌ ${res.status} ${endpoint} — ${message}`);
         throw err;
     }
 
@@ -176,36 +223,37 @@ export default class Fetch {
         try {
             return JSON.parse(text);
         } catch {
+            this.logger.warn?.("Failed to parse JSON response:", text.slice(0, 200));
             return null;
         }
     }
 
     private resolveUrl(endpoint: string): string {
-        if (/^https?:\/\//i.test(endpoint))
-            return endpoint; // absolute URL, no base
+        if (/^https?:\/\//i.test(endpoint)) {
+            return endpoint;
+        }
+
         return this.baseURL + endpoint;
     }
 
     /** Normalizes Fastify/AJV validation messages */
     private normalizeErrorMessage(msg: string) {
-        if (!msg.startsWith("body/")) return msg;
+        if (!msg.startsWith("body/")) {
+            return msg;
+        }
 
-        // Remove the "body/" prefix
         msg = msg.replace(/^body\//, "");
 
-        // Extract the field name (first word before a space or another word)
         const match = msg.match(/^([a-zA-Z0-9_]+)/);
+
         if (match) {
             const field = match[1];
             const capitalized = field.charAt(0).toUpperCase() + field.slice(1);
-
-            // Replace only the first occurrence of that field
             msg = msg.replace(field, capitalized);
         }
 
-        // Optional specific human mappings
         msg = msg
-            .replace(/\bUser\b/, "User/Email") // keep your special case
+            .replace(/\bUser\b/, "User/Email")
             .replace(/\bPwd\b/, "Password");
 
         return msg;
@@ -213,13 +261,13 @@ export default class Fetch {
 
     /** Tries to refresh the token once and handle logout */
     private async tryRefresh(): Promise<boolean> {
-        // if a refresh is already running, wait for it
         if (this.isRefreshing && this.refreshPromise) {
-            this.logger.info?.("[Fetch] Waiting for ongoing refresh...");
+            this.logger.info?.("Waiting for ongoing refresh...");
             return this.refreshPromise;
         }
 
         this.isRefreshing = true;
+
         this.refreshPromise = (async () => {
             try {
                 const result = await this.refreshFn?.();
@@ -228,23 +276,32 @@ export default class Fetch {
 
                 if (token) {
                     this.onToken?.(token);
-                    this.logger.info?.("[Fetch] Token refreshed (new token applied)");
+                    this.logger.info?.("Token refreshed and applied.");
                 }
 
                 if (!ok) {
-                    this.logger.warn?.("[Fetch] RefreshFn returned false/null");
+                    this.logger.warn?.("Refresh function returned false/null. Logging out...");
                     this.onToken?.(null);
+
                     window.dispatchEvent(
-                        new CustomEvent("auth:logout", { detail: { reason: "refresh_failed" } })
+                        new CustomEvent("auth:logout", {
+                            detail: { reason: "refresh_failed" },
+                        })
                     );
                 }
 
                 return ok;
             } catch (err) {
+                this.logger.error?.("Token refresh failed with exception:", err);
+
                 this.onToken?.(null);
+
                 window.dispatchEvent(
-                    new CustomEvent("auth:logout", { detail: { reason: "refresh_exception" } })
+                    new CustomEvent("auth:logout", {
+                        detail: { reason: "refresh_exception" },
+                    })
                 );
+
                 return false;
             } finally {
                 this.isRefreshing = false;
@@ -254,5 +311,5 @@ export default class Fetch {
 
         return this.refreshPromise;
     }
-
 }
+

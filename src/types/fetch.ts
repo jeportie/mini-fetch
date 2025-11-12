@@ -6,15 +6,17 @@
 //   By: jeportie <jeportie@42.fr>                  +#+  +:+       +#+        //
 //                                                +#+#+#+#+#+   +#+           //
 //   Created: 2025/10/14 16:24:05 by jeportie          #+#    #+#             //
-//   Updated: 2025/10/14 16:51:20 by jeportie         ###   ########.fr       //
+//   Updated: 2025/11/12 16:36:10 by jeportie         ###   ########.fr       //
 //                                                                            //
 // ************************************************************************** //
+
+import type { Logger } from "./logger.js";
 
 export interface FetchOptions {
     getToken?: () => string | null;
     onToken?: (token: string | null) => void;
     refreshFn?: () => Promise<boolean>;
-    logger?: Console;
+    logger?: Logger | Console;
     credentials?: RequestCredentials;
 }
 

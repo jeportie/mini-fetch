@@ -1,8 +1,9 @@
+import type { Logger } from "./logger.js";
 export interface FetchOptions {
     getToken?: () => string | null;
     onToken?: (token: string | null) => void;
     refreshFn?: () => Promise<boolean>;
-    logger?: Console;
+    logger?: Logger | Console;
     credentials?: RequestCredentials;
 }
 export interface FetchRequestInit extends RequestInit {

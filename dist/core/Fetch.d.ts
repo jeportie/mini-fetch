@@ -1,11 +1,4 @@
 import { FetchOptions } from "../types/fetch.js";
-/**
- * Generic Fetch wrapper with token & refresh support.
- *
- * - Automatically attaches Bearer tokens if provided.
- * - On 401, calls refreshFn and retries once.
- * - Logs via configurable logger.
- */
 export default class Fetch {
     private baseURL;
     private getToken?;
