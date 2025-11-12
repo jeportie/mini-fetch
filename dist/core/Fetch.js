@@ -99,7 +99,8 @@ export default class Fetch {
     /** Handles HTTP errors and optional refresh retry */
     async handleError(res, endpoint, init, data) {
         // Handle 401 with refresh
-        if (res.status === 401 && !endpoint.startsWith("/auth/refresh")) {
+        if (res.status === 401 && !endpoint.startsWith("/auth/refresh") && !endpoint.includes("/sessions/revoke")) {
+            // if (res.status === 401 && !endpoint.startsWith("/auth/refresh")) {
             this.logger.warn?.("[Fetch] 401 received, attempting refresh...");
             if (await this.tryRefresh()) {
                 // 🔁 rebuild init so Authorization uses new token
