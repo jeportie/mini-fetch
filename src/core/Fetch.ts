@@ -129,7 +129,7 @@ export default class Fetch {
         data: any
     ): Promise<T> {
         // Handle 401 with refresh
-        if (res.status === 401 && !endpoint.startsWith("/auth/")) {
+        if (res.status === 401 && !endpoint.startsWith("/auth/refresh")) {
             this.logger.warn?.("[Fetch] 401 received, attempting refresh...");
             if (await this.tryRefresh()) {
                 // 🔁 rebuild init so Authorization uses new token
