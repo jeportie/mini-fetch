@@ -28,6 +28,8 @@ export default class Fetch {
     private credentials: RequestCredentials;
     private beforeRequestHooks: Array<(init: RequestInit) => Promise<void> | void> = [];
     private afterResponseHooks: Array<(res: Response) => Promise<void> | void> = [];
+    private isRefreshing = false;
+    private refreshPromise: Promise<boolean> | null = null;
 
     constructor(baseURL: string, options: FetchOptions = {}) {
         this.baseURL = baseURL;
@@ -210,30 +212,46 @@ export default class Fetch {
 
     /** Tries to refresh the token once and handle logout */
     private async tryRefresh(): Promise<boolean> {
-        try {
-            const result = await this.refreshFn?.();
-            const token = typeof result === "string" ? result : null;
-            const ok = !!result;
-
-            if (token) {
-                this.onToken?.(token);             // ✅ apply immediately
-                this.logger.info?.("[Fetch] Token refreshed (new token applied)");
-            }
-
-            if (ok) return true;
-
-            this.logger.warn?.("[Fetch] RefreshFn returned false/null");
-            this.onToken?.(null);
-            window.dispatchEvent(
-                new CustomEvent("auth:logout", { detail: { reason: "refresh_failed" } })
-            );
-            return false;
-        } catch (err) {
-            this.onToken?.(null);
-            window.dispatchEvent(
-                new CustomEvent("auth:logout", { detail: { reason: "refresh_exception" } })
-            );
-            return false;
+        // if a refresh is already running, wait for it
+        if (this.isRefreshing && this.refreshPromise) {
+            this.logger.info?.("[Fetch] Waiting for ongoing refresh...");
+            return this.refreshPromise;
         }
+
+        this.isRefreshing = true;
+        this.refreshPromise = (async () => {
+            try {
+                const result = await this.refreshFn?.();
+                const token = typeof result === "string" ? result : null;
+                const ok = !!result;
+
+                if (token) {
+                    this.onToken?.(token);
+                    this.logger.info?.("[Fetch] Token refreshed (new token applied)");
+                }
+
+                if (!ok) {
+                    this.logger.warn?.("[Fetch] RefreshFn returned false/null");
+                    this.onToken?.(null);
+                    window.dispatchEvent(
+                        new CustomEvent("auth:logout", { detail: { reason: "refresh_failed" } })
+                    );
+                }
+
+                return ok;
+            } catch (err) {
+                this.onToken?.(null);
+                window.dispatchEvent(
+                    new CustomEvent("auth:logout", { detail: { reason: "refresh_exception" } })
+                );
+                return false;
+            } finally {
+                this.isRefreshing = false;
+                this.refreshPromise = null;
+            }
+        })();
+
+        return this.refreshPromise;
     }
+
 }

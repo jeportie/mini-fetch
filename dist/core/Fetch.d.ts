@@ -15,6 +15,8 @@ export default class Fetch {
     private credentials;
     private beforeRequestHooks;
     private afterResponseHooks;
+    private isRefreshing;
+    private refreshPromise;
     constructor(baseURL: string, options?: FetchOptions);
     get<T = any>(endpoint: string, opts?: RequestInit): Promise<T>;
     post<T = any>(endpoint: string, body?: object, opts?: RequestInit): Promise<T>;

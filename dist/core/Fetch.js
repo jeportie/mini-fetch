@@ -25,6 +25,8 @@ export default class Fetch {
     credentials;
     beforeRequestHooks = [];
     afterResponseHooks = [];
+    isRefreshing = false;
+    refreshPromise = null;
     constructor(baseURL, options = {}) {
         this.baseURL = baseURL;
         this.getToken = options.getToken;
@@ -162,25 +164,38 @@ export default class Fetch {
     }
     /** Tries to refresh the token once and handle logout */
     async tryRefresh() {
-        try {
-            const result = await this.refreshFn?.();
-            const token = typeof result === "string" ? result : null;
-            const ok = !!result;
-            if (token) {
-                this.onToken?.(token); // ✅ apply immediately
-                this.logger.info?.("[Fetch] Token refreshed (new token applied)");
+        // if a refresh is already running, wait for it
+        if (this.isRefreshing && this.refreshPromise) {
+            this.logger.info?.("[Fetch] Waiting for ongoing refresh...");
+            return this.refreshPromise;
+        }
+        this.isRefreshing = true;
+        this.refreshPromise = (async () => {
+            try {
+                const result = await this.refreshFn?.();
+                const token = typeof result === "string" ? result : null;
+                const ok = !!result;
+                if (token) {
+                    this.onToken?.(token);
+                    this.logger.info?.("[Fetch] Token refreshed (new token applied)");
+                }
+                if (!ok) {
+                    this.logger.warn?.("[Fetch] RefreshFn returned false/null");
+                    this.onToken?.(null);
+                    window.dispatchEvent(new CustomEvent("auth:logout", { detail: { reason: "refresh_failed" } }));
+                }
+                return ok;
             }
-            if (ok)
-                return true;
-            this.logger.warn?.("[Fetch] RefreshFn returned false/null");
-            this.onToken?.(null);
-            window.dispatchEvent(new CustomEvent("auth:logout", { detail: { reason: "refresh_failed" } }));
-            return false;
-        }
-        catch (err) {
-            this.onToken?.(null);
-            window.dispatchEvent(new CustomEvent("auth:logout", { detail: { reason: "refresh_exception" } }));
-            return false;
-        }
+            catch (err) {
+                this.onToken?.(null);
+                window.dispatchEvent(new CustomEvent("auth:logout", { detail: { reason: "refresh_exception" } }));
+                return false;
+            }
+            finally {
+                this.isRefreshing = false;
+                this.refreshPromise = null;
+            }
+        })();
+        return this.refreshPromise;
     }
 }
